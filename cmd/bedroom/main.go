@@ -1,7 +1,6 @@
 package main
 
 import (
-	"C"
 	"github.com/klaital/wannetiot/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/warthog618/gpiod"
