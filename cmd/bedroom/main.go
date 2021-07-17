@@ -4,7 +4,6 @@ import (
 	"github.com/klaital/wannetiot/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/warthog618/gpiod"
-	"time"
 )
 
 func main() {
@@ -31,42 +30,42 @@ func main() {
 
 	/// Temperature
 	logger.WithField("TempPin", cfg.TempSensorPin).Debug("Initializing temperature sensor")
-	temperaturePin, err := chip.RequestLine(cfg.TempSensorPin, gpiod.AsInput)
-	defer temperaturePin.Close()
-	if err != nil {
-		logger.WithError(err).WithField("TempPin", cfg.TempSensorPin).Fatal("Failed to load temperature sensor")
-	}
-	li, err := temperaturePin.Info()
-	if err != nil {
-		logger.WithError(err).WithField("TempPin", cfg.TempSensorPin).Fatal("Failed to load temperature sensor info")
-	}
-	val, err := temperaturePin.Value()
-	if err != nil {
-		logger.WithError(err).WithField("TempSensor", li).Fatal("Failed to load temperature sensor initial value")
-	}
-	logger.WithFields(log.Fields{
-		"LineInfo": li,
-		"InitialReading": val,
-	}).Info("Temperature pin verified")
+	//temperaturePin, err := chip.RequestLine(cfg.TempSensorPin, gpiod.AsInput)
+	//defer temperaturePin.Close()
+	//if err != nil {
+	//	logger.WithError(err).WithField("TempPin", cfg.TempSensorPin).Fatal("Failed to load temperature sensor")
+	//}
+	//li, err := temperaturePin.Info()
+	//if err != nil {
+	//	logger.WithError(err).WithField("TempPin", cfg.TempSensorPin).Fatal("Failed to load temperature sensor info")
+	//}
+	//val, err := temperaturePin.Value()
+	//if err != nil {
+	//	logger.WithError(err).WithField("TempSensor", li).Fatal("Failed to load temperature sensor initial value")
+	//}
+	//logger.WithFields(log.Fields{
+	//	"LineInfo": li,
+	//	"InitialReading": val,
+	//}).Info("Temperature pin verified")
 
 	/// TODO: Air Quality
 	/// TODO: RF Remote Control
 	// TODO: Register interrupts for RF Remote
 
 	// Main loop
-	for {
-		// Sample Temperature
-		temp, err := temperaturePin.Value()
-		if err != nil {
-			logger.WithError(err).Error("Failed to read temperature")
-		}
-		// TODO: Sample Air Quality
-
-		logger.WithFields(log.Fields{
-			"temp": temp,
-		}).Debug("Read sensors")
-		// TODO: Write the metrics to influx
-
-		time.Sleep(cfg.SampleInterval * time.Millisecond)
-	}
+	//for {
+	//	// Sample Temperature
+	//	temp, err := temperaturePin.Value()
+	//	if err != nil {
+	//		logger.WithError(err).Error("Failed to read temperature")
+	//	}
+	//	// TODO: Sample Air Quality
+	//
+	//	logger.WithFields(log.Fields{
+	//		"temp": temp,
+	//	}).Debug("Read sensors")
+	//	// TODO: Write the metrics to influx
+	//
+	//	time.Sleep(cfg.SampleInterval * time.Millisecond)
+	//}
 }
