@@ -24,10 +24,12 @@ type Config struct {
 	influxClient influxdb2.Client
 
 	// Sensors
-	SampleIntervalStr string `env:"SAMPLE_INTERVAL_MS"`
+	SampleIntervalStr string `env:"SAMPLE_INTERVAL"`
 	SampleInterval time.Duration
 	ChipID string `env:"CHIP_ID" envDefault:"gpiochip0"`
-	TempSensorPin int `env:"TEMP_PIN"`
+	TempSensorPin int `env:"TEMP_ADC_ID"`
+
+	// TODO: The ADC config
 }
 
 // Load parses the environment variables to populate a Config struct.

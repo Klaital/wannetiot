@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/klaital/wannetiot/pkg/config"
+	"github.com/klaital/wannetiot/pkg/sensors"
 	log "github.com/sirupsen/logrus"
 	"github.com/warthog618/gpiod"
 )
@@ -22,7 +23,7 @@ func main() {
 	if err != nil {
 		chips := gpiod.Chips()
 		logger.WithError(err).WithFields(log.Fields{
-			"ChipID": cfg.ChipID,
+			"ChipID":         cfg.ChipID,
 			"AvailableChips": chips,
 		}).Fatal("Failed to init GPIO chip")
 	}
@@ -30,23 +31,9 @@ func main() {
 
 	/// Temperature
 	logger.WithField("TempPin", cfg.TempSensorPin).Debug("Initializing temperature sensor")
-	//temperaturePin, err := chip.RequestLine(cfg.TempSensorPin, gpiod.AsInput)
-	//defer temperaturePin.Close()
-	//if err != nil {
-	//	logger.WithError(err).WithField("TempPin", cfg.TempSensorPin).Fatal("Failed to load temperature sensor")
-	//}
-	//li, err := temperaturePin.Info()
-	//if err != nil {
-	//	logger.WithError(err).WithField("TempPin", cfg.TempSensorPin).Fatal("Failed to load temperature sensor info")
-	//}
-	//val, err := temperaturePin.Value()
-	//if err != nil {
-	//	logger.WithError(err).WithField("TempSensor", li).Fatal("Failed to load temperature sensor initial value")
-	//}
-	//logger.WithFields(log.Fields{
-	//	"LineInfo": li,
-	//	"InitialReading": val,
-	//}).Info("Temperature pin verified")
+	adc := sensors.NewAdc(cfg.LogContext, chip)
+	tempSensor := sensors.NewTMP36(cfg, adc, 0)
+	logger.WithField("temperature", tempSensor.Read()).Info("Initial temperature reading")
 
 	/// TODO: Air Quality
 	/// TODO: RF Remote Control
