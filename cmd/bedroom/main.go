@@ -5,6 +5,7 @@ import (
 	"github.com/klaital/wannetiot/pkg/sensors"
 	log "github.com/sirupsen/logrus"
 	"github.com/warthog618/gpiod"
+	"time"
 )
 
 func main() {
@@ -18,7 +19,7 @@ func main() {
 
 	logger.WithField("InfluxHost", cfg.InfluxHost).Info("Influxdb connection initialized")
 
-	// Check each of the sensors once to validate the configuration
+	// Initialize the ADC
 	chip, err := gpiod.NewChip(cfg.ChipID, gpiod.WithConsumer(cfg.NodeName))
 	if err != nil {
 		chips := gpiod.Chips()
@@ -28,11 +29,13 @@ func main() {
 		}).Fatal("Failed to init GPIO chip")
 	}
 	defer chip.Close()
-
-	/// Temperature
 	logger.WithField("TempPin", cfg.TempSensorPin).Debug("Initializing temperature sensor")
 	adc := sensors.NewAdc(cfg.LogContext, chip)
-	tempSensor := sensors.NewTMP36(cfg, adc, 0)
+
+	// Check each of the sensors once to validate the configuration
+
+	/// Temperature
+	tempSensor := sensors.NewTMP36(cfg, adc, cfg.TempSensorPin)
 	logger.WithField("temperature", tempSensor.Read()).Info("Initial temperature reading")
 
 	/// TODO: Air Quality
@@ -40,19 +43,20 @@ func main() {
 	// TODO: Register interrupts for RF Remote
 
 	// Main loop
-	//for {
-	//	// Sample Temperature
-	//	temp, err := temperaturePin.Value()
-	//	if err != nil {
-	//		logger.WithError(err).Error("Failed to read temperature")
-	//	}
-	//	// TODO: Sample Air Quality
-	//
-	//	logger.WithFields(log.Fields{
-	//		"temp": temp,
-	//	}).Debug("Read sensors")
-	//	// TODO: Write the metrics to influx
-	//
-	//	time.Sleep(cfg.SampleInterval * time.Millisecond)
-	//}
+	var temperature float64
+	for {
+		// Sample Temperature
+		tempC := tempSensor.Read()
+		temperature = tempSensor.ReadFahrenheit()
+
+		// TODO: Sample Air Quality
+
+		logger.WithFields(log.Fields{
+			"temp": temperature,
+			"tempC": tempC,
+		}).Debug("Read sensors")
+		// TODO: Write the metrics to influx
+
+		time.Sleep(cfg.SampleInterval)
+	}
 }
