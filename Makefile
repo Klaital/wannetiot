@@ -9,4 +9,4 @@ clean:
 	rm ./bedroom
 
 deploy: pi
-	/usr/bin/scp -i ~/.ssh/id_builder_ed25519 ./bedroom pi@raspberrypi:/home/pi/bin/
+	/usr/bin/scp -i ~/.ssh/id_builder_ed25519 ./bedroom pi@192.168.1.6:/home/pi/bin/

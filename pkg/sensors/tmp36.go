@@ -7,16 +7,16 @@ import (
 )
 
 type TMP36 struct {
-	adc *mcp3w0c.MCP3w0c
+	adc     *mcp3w0c.MCP3w0c
 	channel int
-	logger *log.Entry
+	logger  *log.Entry
 }
 
 func NewTMP36(cfg *config.Config, adc *mcp3w0c.MCP3w0c, channel int) *TMP36 {
 	return &TMP36{
-		adc: adc,
+		adc:     adc,
 		channel: channel,
-		logger: cfg.LogContext,
+		logger:  cfg.LogContext,
 	}
 }
 
@@ -26,7 +26,7 @@ func (sensor *TMP36) Read() float64 {
 	if err != nil {
 		sensor.logger.WithError(err).WithFields(log.Fields{
 			"operation": "TMP36#Read",
-			"channel": sensor.channel,
+			"channel":   sensor.channel,
 		}).Error("Failed to read value from ADC")
 	}
 
@@ -36,5 +36,5 @@ func (sensor *TMP36) Read() float64 {
 
 func (sensor *TMP36) ReadFahrenheit() float64 {
 	degC := sensor.Read()
-	return (degC*1.8) + 32
+	return (degC * 1.8) + 32
 }

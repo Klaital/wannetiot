@@ -15,19 +15,21 @@ type Config struct {
 	Location string `env:"LOCATION"`
 
 	// Logging
-	LogLevel string `env:"LOG_LEVEL"`
+	LogLevel   string `env:"LOG_LEVEL"`
 	LogContext *log.Entry
 
 	// Databases
-	InfluxHost string `env:"INFLUX_HOST"`
-	InfluxToken string `env:"INFLUX_TOKEN"`
+	InfluxHost   string `env:"INFLUX_HOST"`
+	InfluxToken  string `env:"INFLUX_TOKEN"`
+	InfluxOrg    string `env:"INFLUX_ORG"`
+	InfluxBucket string `env:"INFLUX_BUCKET"`
 	influxClient influxdb2.Client
 
 	// Sensors
 	SampleIntervalStr string `env:"SAMPLE_INTERVAL"`
-	SampleInterval time.Duration
-	ChipID string `env:"CHIP_ID" envDefault:"gpiochip0"`
-	TempSensorPin int `env:"TEMP_ADC_ID"`
+	SampleInterval    time.Duration
+	ChipID            string `env:"CHIP_ID" envDefault:"gpiochip0"`
+	TempSensorPin     int    `env:"TEMP_ADC_ID"`
 
 	// TODO: The ADC config
 }
@@ -69,7 +71,7 @@ func Load() *Config {
 
 	cfg.LogContext = logger.WithFields(log.Fields{
 		"Location": cfg.Location,
-		"Node": cfg.NodeName,
+		"Node":     cfg.NodeName,
 	})
 
 	// Connect to Influx DB and cache the connection pool

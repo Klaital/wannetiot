@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"github.com/klaital/wannetiot/pkg/config"
 	"github.com/klaital/wannetiot/pkg/sensors"
 	log "github.com/sirupsen/logrus"
 	"github.com/warthog618/gpiod"
+	"os"
 	"time"
 )
 
@@ -15,6 +18,7 @@ func main() {
 	logger := cfg.LogContext
 	logger.Info("Config loaded")
 	influxClient := cfg.ConnectInflux()
+	influxWriter := influxClient.WriteAPIBlocking(cfg.InfluxOrg, cfg.InfluxBucket)
 	defer influxClient.Close()
 
 	logger.WithField("InfluxHost", cfg.InfluxHost).Info("Influxdb connection initialized")
@@ -52,10 +56,16 @@ func main() {
 		// TODO: Sample Air Quality
 
 		logger.WithFields(log.Fields{
-			"temp": temperature,
+			"temp":  temperature,
 			"tempC": tempC,
 		}).Debug("Read sensors")
-		// TODO: Write the metrics to influx
+
+		// Write the metrics to influx
+		err = influxWriter.WriteRecord(context.Background(), fmt.Sprintf("bedroom,unit=temperature value=%f", temperature))
+		if err != nil {
+			logger.WithError(err).Error("Failed to write to influx")
+			os.Exit(1)
+		}
 
 		time.Sleep(cfg.SampleInterval)
 	}
