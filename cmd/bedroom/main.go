@@ -7,7 +7,6 @@ import (
 	"github.com/klaital/wannetiot/pkg/sensors"
 	log "github.com/sirupsen/logrus"
 	"github.com/warthog618/gpiod"
-	"os"
 	"time"
 )
 
@@ -61,10 +60,9 @@ func main() {
 		}).Debug("Read sensors")
 
 		// Write the metrics to influx
-		err = influxWriter.WriteRecord(context.Background(), fmt.Sprintf("bedroom,unit=temperature value=%f", temperature))
+		err = influxWriter.WriteRecord(context.Background(), fmt.Sprintf("ambient,unit=temperature bedroom=%f", temperature))
 		if err != nil {
 			logger.WithError(err).Error("Failed to write to influx")
-			os.Exit(1)
 		}
 
 		time.Sleep(cfg.SampleInterval)
