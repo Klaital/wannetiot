@@ -7,10 +7,10 @@ package ctlpanel
 
 import (
 	"context"
+	"github.com/klaital/wannetiot/pkg/lights"
+	"github.com/klaital/wannetiot/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/warthog618/gpiod/spi/mcp3w0c"
-	"iot-bedroom-pi/pkg/lights"
-	"iot-bedroom-pi/pkg/util"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/physic"
 	"time"
@@ -172,42 +172,43 @@ func (p *ControlPanel) HandleTouchSwitch(oldLightSettings *lights.LightConfig) (
 // StartPagerInterrupt will watch for edges on the Pager pin, and write into the given
 // channel when one is detected. It runs forever until the context is cancelled.
 func (p *ControlPanel) StartPagerInterrupt(ctx context.Context, ch chan uint8, panelCode uint8) {
-	go func() {
-		for {
-			p.PagerPin.WaitForEdge(1 * time.Second)
-			if p.PagerPin.Read() {
-				ch <- panelCode
-			}
-		}
-	}()
+	//go func() {
+	//	for {
+	//		p.PagerPin.WaitForEdge(1 * time.Second)
+	//		if p.PagerPin.Read() {
+	//			ch <- panelCode
+	//		}
+	//	}
+	//}()
 
 	<-ctx.Done()
 }
 
 // AcknowledgePager plays a hardcoded sequence of lights and beeps to confirm the pager request was received.
 func (p *ControlPanel) AcknowledgePager() {
-	go func() {
-		util.Flash(p.LedPin, 250*time.Millisecond, nil)
-		time.Sleep(80 * time.Millisecond)
-		util.Flash(p.LedPin, 250*time.Millisecond, nil)
-	}()
-	go func() {
-		p.Chirp(5*physic.KiloHertz, 80*time.Millisecond)
-		time.Sleep(80 * time.Millisecond)
-		p.Chirp(5*physic.KiloHertz, 80*time.Millisecond)
-	}()
+	p.logger.Info("Pager acknowledged")
+	//go func() {
+	//	util.Flash(p.LedPin, 250*time.Millisecond, nil)
+	//	time.Sleep(80 * time.Millisecond)
+	//	util.Flash(p.LedPin, 250*time.Millisecond, nil)
+	//}()
+	//go func() {
+	//	p.Chirp(5*physic.KiloHertz, 80*time.Millisecond)
+	//	time.Sleep(80 * time.Millisecond)
+	//	p.Chirp(5*physic.KiloHertz, 80*time.Millisecond)
+	//}()
 }
 
 // StartLightsInterrupt will watch for edges on the LightSwitch pin, and write into the given
 // channel when one is detected. It runs forever until the context is cancelled
 func (p *ControlPanel) StartLightsInterrupt(ctx context.Context, ch chan uint8, panelCode uint8) {
-	go func() {
-		for {
-			if p.LightSwitchPin.WaitForEdge(1 * time.Second) {
-				ch <- panelCode
-			}
-		}
-	}()
-
+	//go func() {
+	//	for {
+	//		if p.LightSwitchPin.WaitForEdge(1 * time.Second) {
+	//			ch <- panelCode
+	//		}
+	//	}
+	//}()
+	//
 	<-ctx.Done()
 }

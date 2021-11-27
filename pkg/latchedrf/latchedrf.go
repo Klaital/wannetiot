@@ -3,8 +3,8 @@ package latchedrf
 import (
 	"context"
 	"errors"
+	"github.com/klaital/wannetiot/pkg/util"
 	log "github.com/sirupsen/logrus"
-	"iot-bedroom-pi/pkg/util"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/gpio/gpioreg"
 	"time"
@@ -35,13 +35,67 @@ func (r *LatchedRadioReceiver) IsValid() bool {
 
 func New(resetPin, a, b, c, d string) (*LatchedRadioReceiver, error) {
 	var err error
+	gpioA := gpioreg.ByName(a)
+	if gpioA == nil {
+		return nil, errors.New("failed to register pin A")
+	}
+	err = gpioA.In(gpio.PullNoChange, gpio.RisingEdge)
+	if err != nil {
+		log.WithError(err).Error("Failed to initialize pin A")
+		return nil, err
+	}
+	log.Debug("RF Channel A ready")
+
+	gpioB := gpioreg.ByName(b)
+	if gpioB == nil {
+		return nil, errors.New("failed to register pin B")
+	}
+	err = gpioB.In(gpio.PullNoChange, gpio.RisingEdge)
+	if err != nil {
+		log.WithError(err).Error("Failed to initialize pin B")
+		return nil, err
+	}
+	log.Debug("RF Channel B ready")
+
+	gpioC := gpioreg.ByName(c)
+	if gpioA == nil {
+		return nil, errors.New("failed to register pin C")
+	}
+	err = gpioC.In(gpio.PullNoChange, gpio.RisingEdge)
+	if err != nil {
+		log.WithError(err).Error("Failed to initialize pin C")
+		return nil, err
+	}
+	log.Debug("RF Channel C ready")
+
+	gpioD := gpioreg.ByName(d)
+	if gpioD == nil {
+		return nil, errors.New("failed to register pin D")
+	}
+	err = gpioD.In(gpio.PullNoChange, gpio.RisingEdge)
+	if err != nil {
+		log.WithError(err).Error("Failed to initialize pin D")
+		return nil, err
+	}
+	log.Debug("RF Channel D ready")
+
+	gpioR := gpioreg.ByName(resetPin)
+	if gpioR == nil {
+		return nil, errors.New("failed to register pin R")
+	}
+	err = gpioA.Out(gpio.Low)
+	if err != nil {
+		log.WithError(err).Error("Failed to initialize pin R")
+		return nil, err
+	}
+
 	r := LatchedRadioReceiver{
-		LatchResetPin: gpioreg.ByName(resetPin),
+		LatchResetPin: gpioR,
 		Channels: []gpio.PinIn{
-			gpioreg.ByName(a),
-			gpioreg.ByName(b),
-			gpioreg.ByName(c),
-			gpioreg.ByName(d),
+			gpioA,
+			gpioB,
+			gpioC,
+			gpioD,
 		},
 		handlers:    make([]Handler, 4),
 		WaitTimeout: 1 * time.Second,
@@ -57,15 +111,15 @@ func New(resetPin, a, b, c, d string) (*LatchedRadioReceiver, error) {
 		}).Error("Failed to initialize pin")
 		return nil, err
 	}
-	for i, c := range r.Channels {
-		if err = c.In(gpio.PullNoChange, gpio.RisingEdge); err != nil {
-			log.WithError(err).WithFields(log.Fields{
-				"channel": i,
-				"pin":     c.String(),
-			}).Error("Failed to initialize pin")
-			return nil, err
-		}
-	}
+	//for i, c := range r.Channels {
+	//	if err = c.In(gpio.PullNoChange, gpio.RisingEdge); err != nil {
+	//		log.WithError(err).WithFields(log.Fields{
+	//			"channel": i,
+	//			"pin":     c.String(),
+	//		}).Error("Failed to initialize pin")
+	//		return nil, err
+	//	}
+	//}
 
 	return &r, nil
 }
@@ -95,9 +149,10 @@ func (r *LatchedRadioReceiver) RegisterChannelDHandler(handlerFunc Handler) {
 // When one is triggered, the registered handler is executed, then the latch is reset.
 func (r *LatchedRadioReceiver) Run(ctx context.Context) {
 	handlePin := func(c gpio.PinIn, h Handler) {
+		log.WithField("pin", c.Name()).Debug("Listening for edges on RF pin")
 		for {
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				return
 			default:
 				if c.WaitForEdge(r.WaitTimeout) {

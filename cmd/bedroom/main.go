@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
+	"github.com/klaital/wannetiot/pkg/config"
+	"github.com/klaital/wannetiot/pkg/ctlpanel"
+	"github.com/klaital/wannetiot/pkg/latchedrf"
+	"github.com/klaital/wannetiot/pkg/lights"
+	"github.com/klaital/wannetiot/pkg/util"
 	log "github.com/sirupsen/logrus"
-	"iot-bedroom-pi/pkg/config"
-	"iot-bedroom-pi/pkg/ctlpanel"
-	"iot-bedroom-pi/pkg/latchedrf"
-	"iot-bedroom-pi/pkg/lights"
-	"iot-bedroom-pi/pkg/util"
 	"os"
 	"os/signal"
 	"time"
@@ -44,12 +44,9 @@ func main() {
 	logger := cfg.Logger.WithFields(log.Fields{
 		"op": "main",
 	})
-	//cfg.InitPins()
-	//defer cfg.HaltPins()
+	cfg.InitPins()
+	defer cfg.HaltPins()
 
-	// Initialize the control panels
-	globalState.ControlPanel1 = ctlpanel.New(cfg.Panel1PagerPin, cfg.Panel1LightSwitchPin, cfg.Panel1ResetPin, cfg.Panel1LEDPin, cfg.Panel1SpeakerPin, cfg.Panel1DimmerChannel, cfg.ControlPanelsAdc, nil)
-	globalState.ControlPanel2 = ctlpanel.New(cfg.Panel2PagerPin, cfg.Panel2LightSwitchPin, cfg.Panel2ResetPin, cfg.Panel2LEDPin, cfg.Panel2SpeakerPin, cfg.Panel2DimmerChannel, cfg.ControlPanelsAdc, nil)
 
 	// Initialize the attached sensors
 	//cfg.InitSensors()
@@ -134,30 +131,20 @@ func main() {
 	}
 
 	// Start polling the sensors
-	sensorTicker := time.NewTicker(cfg.PollInterval)
-	go pollSensors(ctx, sensorTicker, cfg)
+	//sensorTicker := time.NewTicker(cfg.PollInterval)
+	//go pollSensors(ctx, sensorTicker, cfg)
 
 	pagerNotice := make(chan uint8, 1)
 	lightsNotice := make(chan uint8, 1)
-	// Register interrupts for the pager and lightswitch buttons
-	go globalState.ControlPanel1.StartPagerInterrupt(ctx, pagerNotice, 0)
-	go globalState.ControlPanel2.StartPagerInterrupt(ctx, pagerNotice, 1)
-	go globalState.ControlPanel1.StartLightsInterrupt(ctx, lightsNotice, 0)
-	go globalState.ControlPanel2.StartLightsInterrupt(ctx, lightsNotice, 1)
 
 	go func(cfg *config.Config) {
 		var n uint8
 		for {
 			select {
 			case n = <-pagerNotice:
-				if n == 0 {
-					globalState.ControlPanel1.AcknowledgePager()
-				} else if n == 1 {
-					globalState.ControlPanel2.AcknowledgePager()
-				} else {
-					log.Error("Invalid panel code")
-				}
+				cfg.Logger.WithField("channel", n).Debug("Pager received")
 			case n = <-lightsNotice:
+				cfg.Logger.WithField("channel", n).Debug("Updating lights state")
 				// Change the lights brightness, Low -> High -> Off -> Low
 				switch globalState.LightState.Name {
 				case "LIGHTS_OFF":
@@ -176,16 +163,16 @@ func main() {
 		}
 	}(cfg)
 
+	// TODO: start webserver to listen for remote control commands
+
 	// TODO: cancel the interrupts when a shutdown signal is received
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	go func() {
-		<-c
-		logger.Info("Trapped Ctrl+C, shutting down")
-		halt()
-		os.Exit(0)
-	}()
-	// TODO: start webserver to listen for remote control commands
+	<-c
+	logger.Info("Trapped Ctrl+C, shutting down")
+	halt()
+	os.Exit(0)
+
 }
 
 func pollSensors(ctx context.Context, ticker *time.Ticker, cfg *config.Config) {

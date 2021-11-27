@@ -39,9 +39,9 @@ type Config struct {
 	RadioWaitTimeout   time.Duration `env:"RF_WAIT_TIMEOUT" envDefault:"1s"`
 	RadioLatchResetPin string        `env:"RF_LATCH_RESET_PIN" envDefault:"GPIO17"`
 	RadioChannelAPin   string        `env:"RF_CHANNEL_A_PIN" envDefault:"GPIO24"`
-	RadioChannelBPin   string        `env:"RF_CHANNEL_B_PIN" envDefault:"GPIO23"`
-	RadioChannelCPin   string        `env:"RF_CHANNEL_C_PIN" envDefault:"GPIO27"`
-	RadioChannelDPin   string        `env:"RF_CHANNEL_D_PIN" envDefault:"GPIO22"`
+	RadioChannelBPin   string        `env:"RF_CHANNEL_B_PIN" envDefault:"GPIO25"`
+	RadioChannelCPin   string        `env:"RF_CHANNEL_C_PIN" envDefault:"GPIO8"`
+	RadioChannelDPin   string        `env:"RF_CHANNEL_D_PIN" envDefault:"GPIO23"`
 
 	// Sensors
 	PollInterval  time.Duration `env:"POLL_INTERVAL" envDefault:"5s"`

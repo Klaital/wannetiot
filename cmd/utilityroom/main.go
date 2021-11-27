@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/klaital/wannetiot/pkg/config"
 	log "github.com/sirupsen/logrus"
-	"iot-bedroom-pi/pkg/config"
 	"periph.io/x/conn/v3/driver/driverreg"
 	"periph.io/x/host/v3"
 	"time"
@@ -40,7 +40,6 @@ func main() {
 	}
 	defer cfg.HaltThermocouples()
 
-
 	err = cfg.InitializeAdc()
 	if err != nil {
 		logger.WithError(err).Fatal("Failed to init ADC")
@@ -50,7 +49,7 @@ func main() {
 	logger.Debug("Starting ticker")
 	ticker := time.NewTicker(cfg.PollInterval)
 	for {
-		<- ticker.C
+		<-ticker.C
 
 		if cfg.Thermocouple1 != nil {
 			// Read the thermocouple indicating dryer exhaust temperature

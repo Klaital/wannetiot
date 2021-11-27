@@ -1,9 +1,9 @@
 package lights
 
 import (
+	"github.com/klaital/wannetiot/pkg/config"
+	"github.com/klaital/wannetiot/pkg/util"
 	log "github.com/sirupsen/logrus"
-	"iot-bedroom-pi/pkg/config"
-	"iot-bedroom-pi/pkg/util"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/physic"
 	"time"
