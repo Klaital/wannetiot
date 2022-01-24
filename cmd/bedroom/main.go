@@ -44,51 +44,52 @@ func main() {
 	logger := cfg.Logger.WithFields(log.Fields{
 		"op": "main",
 	})
+
 	cfg.InitPins()
 	defer cfg.HaltPins()
 
-
 	// Initialize the attached sensors
-	//cfg.InitSensors()
+	cfg.InitSensors()
 
 	// Initialize the RF receiver
+	logger.Debug("Initializing RF Receiver")
 	globalState.RadioReceiver, err = latchedrf.New(cfg.RadioLatchResetPin, cfg.RadioChannelAPin, cfg.RadioChannelBPin, cfg.RadioChannelCPin, cfg.RadioChannelDPin)
 	if err != nil {
 		logger.WithError(err).WithFields(log.Fields{
 			"ResetPin": cfg.RadioLatchResetPin,
-			"A": cfg.RadioChannelAPin,
-			"B": cfg.RadioChannelBPin,
-			"C": cfg.RadioChannelCPin,
-			"D": cfg.RadioChannelDPin,
+			"A":        cfg.RadioChannelAPin,
+			"B":        cfg.RadioChannelBPin,
+			"C":        cfg.RadioChannelCPin,
+			"D":        cfg.RadioChannelDPin,
 		}).Fatal("Failed to instantiate LatchedRadioReceiver")
 	}
 	globalState.RadioReceiver.WaitTimeout = cfg.RadioWaitTimeout
 	globalState.RadioReceiver.RegisterChannelAHandler(func() {
 		log.WithField("channel", "A").Debug("RF signal received")
-		// TODO: implement handler that turns the lights on full power
 		globalState.LightState = lights.LightSettingsFull()
 		if cfg.LedStripEnabled {
+			log.WithField("lights", globalState.LightState).Debug("Driving new light settings")
 			lights.DriveLights(cfg, globalState.LightState)
 		}
 	})
 	globalState.RadioReceiver.RegisterChannelBHandler(func() {
 		log.WithField("channel", "B").Debug("RF signal received")
-		// TODO: implement handler that turns the lights on low power
 		globalState.LightState = lights.LightSettingLow()
 		if cfg.LedStripEnabled {
+			log.WithField("lights", globalState.LightState).Debug("Driving new light settings")
 			lights.DriveLights(cfg, globalState.LightState)
 		}
 	})
 	globalState.RadioReceiver.RegisterChannelCHandler(func() {
 		log.WithField("channel", "C").Debug("RF signal received")
-		// TODO: implement handler that turns the lights off
 		globalState.LightState = lights.LightsOff
 		if cfg.LedStripEnabled {
+			log.WithField("lights", globalState.LightState).Debug("Driving new light settings")
 			lights.DriveLights(cfg, globalState.LightState)
 		}
 	})
 	globalState.RadioReceiver.RegisterChannelDHandler(func() {
-		log.WithField("channel", "D").Debug("RF signal received")
+		log.WithField("channel", "D").Debug("RF Pager signal received")
 		// Handler that sends out pager notifications
 		if cfg.Panel1Enabled {
 			globalState.ControlPanel1.AcknowledgePager()

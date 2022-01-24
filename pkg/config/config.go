@@ -23,7 +23,7 @@ import (
 type Config struct {
 	// Metadata
 	NodeName    string `env:"NODE_NAME" envDefault:"bedroom"`
-	LogLevelStr string `env:"LOG_LEVEL" envDefault:"info"`
+	LogLevelStr string `env:"LOG_LEVEL" envDefault:"debug"`
 	LogLevel    log.Level
 	Logger      *log.Logger
 
@@ -38,10 +38,10 @@ type Config struct {
 	// RF Remote Control
 	RadioWaitTimeout   time.Duration `env:"RF_WAIT_TIMEOUT" envDefault:"1s"`
 	RadioLatchResetPin string        `env:"RF_LATCH_RESET_PIN" envDefault:"GPIO17"`
-	RadioChannelAPin   string        `env:"RF_CHANNEL_A_PIN" envDefault:"GPIO24"`
+	RadioChannelAPin   string        `env:"RF_CHANNEL_A_PIN" envDefault:"GPIO23"`
 	RadioChannelBPin   string        `env:"RF_CHANNEL_B_PIN" envDefault:"GPIO25"`
 	RadioChannelCPin   string        `env:"RF_CHANNEL_C_PIN" envDefault:"GPIO8"`
-	RadioChannelDPin   string        `env:"RF_CHANNEL_D_PIN" envDefault:"GPIO23"`
+	RadioChannelDPin   string        `env:"RF_CHANNEL_D_PIN" envDefault:"GPIO24"`
 
 	// Sensors
 	PollInterval  time.Duration `env:"POLL_INTERVAL" envDefault:"5s"`
@@ -69,7 +69,7 @@ type Config struct {
 	WaterSensor2        gpio.PinIn
 
 	// LED Light Strip
-	LedStripEnabled    bool   `env:"LED_STRIP_ENABLED" envDefault:"false"`
+	LedStripEnabled    bool   `env:"LED_STRIP_ENABLED" envDefault:"true"`
 	LedControlRed      string `env:"LED_CTRL_RED" envDefault:"GPIO2"`
 	LedControlRedPin   gpio.PinOut
 	LedControlGreen    string `env:"LED_CTRL_GREEN" envDefault:"GPIO3"`
@@ -129,12 +129,24 @@ func (cfg *Config) GetInfluxDB() api.WriteAPIBlocking {
 func (cfg *Config) InitSensors() {
 	var err error
 	// Temperature/Humidity
-	if err = dht.HostInit(); err != nil {
-		log.WithError(err).Fatal("Failed to initialize AM2302 temp/humidity sensor host")
-	}
-	cfg.AM2302Sensor, err = dht.NewDHT(cfg.AM2302PinName, dht.Fahrenheit, "")
-	if err != nil {
-		log.WithError(err).Fatal("Failed to initialize AM2302 temp/humidity sensor")
+	if cfg.AM2302Enabled {
+		if err = dht.HostInit(); err != nil {
+			log.WithError(err).Fatal("Failed to initialize AM2302 temp/humidity sensor host")
+		}
+		cfg.AM2302Sensor, err = dht.NewDHT(cfg.AM2302PinName, dht.Fahrenheit, "")
+		if err != nil {
+			log.WithError(err).Fatal("Failed to initialize AM2302 temp/humidity sensor")
+		}
+
+		h, t, err := cfg.AM2302Sensor.Read()
+		if err != nil {
+			log.WithError(err).Fatal("Failed to take initial reading from AM2302 temp/humidity sensor")
+		} else {
+			log.WithFields(log.Fields{
+				"temperature": t,
+				"humidity":    h,
+			}).Info("Initial temperature and humidity reading")
+		}
 	}
 
 	// TODO: Air Quality
@@ -255,21 +267,30 @@ func (cfg *Config) InitPins() {
 		if cfg.LedControlRedPin == nil {
 			log.WithField("pin", cfg.LedControlRedPin.String()).Error("Failed to init Red LED pin")
 		}
-		cfg.LedControlRedPin.Out(gpio.Low)
+		if err = cfg.LedControlRedPin.Out(gpio.Low); err != nil {
+			log.WithField("pin", cfg.LedControlRedPin.String()).WithError(err).Error("Error with initial Red LED settings")
+		}
 		cfg.LedControlGreenPin = gpioreg.ByName(cfg.LedControlGreen)
 		if cfg.LedControlGreenPin == nil {
 			log.WithField("pin", cfg.LedControlGreenPin.String()).Error("Failed to init Green LED pin")
 		}
-		cfg.LedControlGreenPin.Out(gpio.Low)
+		if err = cfg.LedControlGreenPin.Out(gpio.Low); err != nil {
+			log.WithField("pin", cfg.LedControlGreenPin.String()).WithError(err).Error("Error with initial Green LED settings")
+		}
 		cfg.LedControlWhitePin = gpioreg.ByName(cfg.LedControlWhite)
 		if cfg.LedControlWhitePin == nil {
 			log.WithField("pin", cfg.LedControlWhitePin.String()).Error("Failed to init White LED pin")
+		}
+		if err = cfg.LedControlWhitePin.Out(gpio.Low); err != nil {
+			log.WithField("pin", cfg.LedControlWhitePin.String()).WithError(err).Error("Error with initial White LED settings")
 		}
 		cfg.LedControlBluePin = gpioreg.ByName(cfg.LedControlBlue)
 		if cfg.LedControlBluePin == nil {
 			log.WithField("pin", cfg.LedControlBluePin.String()).Fatal("Failed to init Blue LED pin")
 		}
-		cfg.LedControlBluePin.Out(gpio.Low)
+		if err = cfg.LedControlBluePin.Out(gpio.Low); err != nil {
+			log.WithField("pin", cfg.LedControlBluePin.String()).WithError(err).Error("Error with initial Blue LED settings")
+		}
 	}
 
 	if cfg.Panel1Enabled {

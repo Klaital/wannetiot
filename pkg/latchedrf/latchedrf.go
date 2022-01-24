@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/gpio/gpioreg"
+	_ "periph.io/x/host/v3/bcm283x"
 	"time"
 )
 
@@ -27,63 +28,57 @@ func (r *LatchedRadioReceiver) IsValid() bool {
 			log.WithField("pin", i).Error("Failed to initialize pin")
 			return false
 		} else {
-			log.WithField("pin", r.Channels[i].String()).Debug("Initialized pin")
+			log.WithField("pin", r.Channels[i].String()).Debug("Initialized RF signal pin")
 		}
 	}
 	return r.LatchResetPin != nil
 }
 
+var ErrPinNotRegistered = errors.New("pin not registered")
+
+func initInputPin(pinId string) (gpio.PinIn, error) {
+	pin := gpioreg.ByName(pinId)
+	if pin == nil {
+		return nil, ErrPinNotRegistered
+	}
+	return pin, pin.In(gpio.PullDown, gpio.RisingEdge)
+}
 func New(resetPin, a, b, c, d string) (*LatchedRadioReceiver, error) {
 	var err error
-	gpioA := gpioreg.ByName(a)
-	if gpioA == nil {
-		return nil, errors.New("failed to register pin A")
-	}
-	err = gpioA.In(gpio.PullNoChange, gpio.RisingEdge)
+	gpioA, err := initInputPin(a)
 	if err != nil {
-		log.WithError(err).Error("Failed to initialize pin A")
+		log.WithField("pin", a).WithError(err).Error("Failed to initialize RF Pin")
 		return nil, err
+	} else {
+		log.WithField("pin", a).Debug("RF Pin ready")
 	}
-	log.Debug("RF Channel A ready")
-
-	gpioB := gpioreg.ByName(b)
-	if gpioB == nil {
-		return nil, errors.New("failed to register pin B")
-	}
-	err = gpioB.In(gpio.PullNoChange, gpio.RisingEdge)
+	gpioB, err := initInputPin(b)
 	if err != nil {
-		log.WithError(err).Error("Failed to initialize pin B")
+		log.WithField("pin", b).WithError(err).Error("Failed to initialize RF Pin")
 		return nil, err
+	} else {
+		log.WithField("pin", b).Debug("RF Pin ready")
 	}
-	log.Debug("RF Channel B ready")
-
-	gpioC := gpioreg.ByName(c)
-	if gpioA == nil {
-		return nil, errors.New("failed to register pin C")
-	}
-	err = gpioC.In(gpio.PullNoChange, gpio.RisingEdge)
+	gpioC, err := initInputPin(c)
 	if err != nil {
-		log.WithError(err).Error("Failed to initialize pin C")
+		log.WithField("pin", c).WithError(err).Error("Failed to initialize RF Pin")
 		return nil, err
+	} else {
+		log.WithField("pin", c).Debug("RF Pin ready")
 	}
-	log.Debug("RF Channel C ready")
-
-	gpioD := gpioreg.ByName(d)
-	if gpioD == nil {
-		return nil, errors.New("failed to register pin D")
-	}
-	err = gpioD.In(gpio.PullNoChange, gpio.RisingEdge)
+	gpioD, err := initInputPin(d)
 	if err != nil {
-		log.WithError(err).Error("Failed to initialize pin D")
+		log.WithField("pin", d).WithError(err).Error("Failed to initialize RF Pin")
 		return nil, err
+	} else {
+		log.WithField("pin", d).Debug("RF Pin ready")
 	}
-	log.Debug("RF Channel D ready")
 
 	gpioR := gpioreg.ByName(resetPin)
 	if gpioR == nil {
 		return nil, errors.New("failed to register pin R")
 	}
-	err = gpioA.Out(gpio.Low)
+	err = gpioR.Out(gpio.Low)
 	if err != nil {
 		log.WithError(err).Error("Failed to initialize pin R")
 		return nil, err
