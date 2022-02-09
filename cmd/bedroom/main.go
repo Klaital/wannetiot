@@ -8,6 +8,7 @@ import (
 	"github.com/klaital/wannetiot/pkg/lights"
 	"github.com/klaital/wannetiot/pkg/util"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -65,31 +66,34 @@ func main() {
 	}
 	globalState.RadioReceiver.WaitTimeout = cfg.RadioWaitTimeout
 	globalState.RadioReceiver.RegisterChannelAHandler(func() {
-		log.WithField("channel", "A").Debug("RF signal received")
+		logger.WithField("channel", "A").Debug("RF signal received")
 		globalState.LightState = lights.LightSettingsFull()
 		if cfg.LedStripEnabled {
-			log.WithField("lights", globalState.LightState).Debug("Driving new light settings")
-			lights.DriveLights(cfg, globalState.LightState)
+			logger.WithField("lights", globalState.LightState).Debug("Driving new light settings")
+			lights.HaltWakeup()
+			lights.DriveLights(cfg, &globalState.LightState)
 		}
 	})
 	globalState.RadioReceiver.RegisterChannelBHandler(func() {
-		log.WithField("channel", "B").Debug("RF signal received")
+		logger.WithField("channel", "B").Debug("RF signal received")
 		globalState.LightState = lights.LightSettingLow()
 		if cfg.LedStripEnabled {
-			log.WithField("lights", globalState.LightState).Debug("Driving new light settings")
-			lights.DriveLights(cfg, globalState.LightState)
+			logger.WithField("lights", globalState.LightState).Debug("Driving new light settings")
+			lights.HaltWakeup()
+			lights.DriveLights(cfg, &globalState.LightState)
 		}
 	})
 	globalState.RadioReceiver.RegisterChannelCHandler(func() {
-		log.WithField("channel", "C").Debug("RF signal received")
+		logger.WithField("channel", "C").Debug("RF signal received")
 		globalState.LightState = lights.LightsOff
 		if cfg.LedStripEnabled {
-			log.WithField("lights", globalState.LightState).Debug("Driving new light settings")
-			lights.DriveLights(cfg, globalState.LightState)
+			logger.WithField("lights", globalState.LightState).Debug("Driving new light settings")
+			lights.HaltWakeup()
+			lights.DriveLights(cfg, &globalState.LightState)
 		}
 	})
 	globalState.RadioReceiver.RegisterChannelDHandler(func() {
-		log.WithField("channel", "D").Debug("RF Pager signal received")
+		logger.WithField("channel", "D").Debug("RF Pager signal received")
 		// Handler that sends out pager notifications
 		if cfg.Panel1Enabled {
 			globalState.ControlPanel1.AcknowledgePager()
@@ -107,9 +111,9 @@ func main() {
 	if cfg.AM2302Enabled {
 		temperature, humidity, err := cfg.AM2302Sensor.Read()
 		if err != nil {
-			log.WithError(err).Error("Failed to read from AM2302")
+			logger.WithError(err).Error("Failed to read from AM2302")
 		} else {
-			log.WithFields(log.Fields{
+			logger.WithFields(log.Fields{
 				"t": temperature,
 				"h": humidity,
 			}).Debug("Got initial atmo readings")
@@ -124,9 +128,9 @@ func main() {
 		influxBuffer = append(influxBuffer, p)
 		err = util.FlushInfluxBuffer(influxBuffer, cfg.GetInfluxDB())
 		if err != nil {
-			log.WithError(err).Error("Error flushing influx buffer")
+			logger.WithError(err).Error("Error flushing influx buffer")
 		} else {
-			log.Debug("Influx data buffer flushed")
+			logger.Debug("Influx data buffer flushed")
 			influxBuffer = make([]util.InfluxDataPoint, 0, 10)
 		}
 	}
@@ -135,43 +139,64 @@ func main() {
 	//sensorTicker := time.NewTicker(cfg.PollInterval)
 	//go pollSensors(ctx, sensorTicker, cfg)
 
-	pagerNotice := make(chan uint8, 1)
-	lightsNotice := make(chan uint8, 1)
+	//pagerNotice := make(chan uint8, 1)
+	//lightsNotice := make(chan uint8, 1)
+	//
+	//go func(cfg *config.Config) {
+	//	var n uint8
+	//	for {
+	//		select {
+	//		case n = <-pagerNotice:
+	//			cfg.Logger.WithField("channel", n).Debug("Pager received")
+	//		case n = <-lightsNotice:
+	//			cfg.Logger.WithField("channel", n).Debug("Updating lights state")
+	//			// Change the lights brightness, Low -> High -> Off -> Low
+	//			switch globalState.LightState.Name {
+	//			case "LIGHTS_OFF":
+	//				globalState.LightState = lights.LightsOff
+	//				lights.DriveLights(cfg, &globalState.LightState)
+	//			case "LIGHTS_LOW":
+	//				globalState.LightState = lights.LightSettingLow()
+	//				lights.DriveLights(cfg, &globalState.LightState)
+	//			case "LIGHTS_HIGH":
+	//				globalState.LightState = lights.LightsOff
+	//				lights.DriveLights(cfg, &globalState.LightState)
+	//			}
+	//		case <-ctx.Done():
+	//			return
+	//		}
+	//	}
+	//}(cfg)
 
-	go func(cfg *config.Config) {
-		var n uint8
-		for {
-			select {
-			case n = <-pagerNotice:
-				cfg.Logger.WithField("channel", n).Debug("Pager received")
-			case n = <-lightsNotice:
-				cfg.Logger.WithField("channel", n).Debug("Updating lights state")
-				// Change the lights brightness, Low -> High -> Off -> Low
-				switch globalState.LightState.Name {
-				case "LIGHTS_OFF":
-					globalState.LightState = lights.LightSettingLow()
-					lights.DriveLights(cfg, globalState.LightState)
-				case "LIGHTS_LOW":
-					globalState.LightState = lights.LightsFull
-					lights.DriveLights(cfg, globalState.LightState)
-				case "LIGHTS_HIGH":
-					globalState.LightState = lights.LightsOff
-					lights.DriveLights(cfg, globalState.LightState)
-				}
-			case <-ctx.Done():
-				return
-			}
+	// Start a background thread to handle the gradual wakup light routine
+	go lights.StartWakeupRunner(ctx, cfg)
+
+	// Start a webserver to listen for remote control commands
+	webServer := &http.Server{Addr: ":8080", Handler: NewServer(cfg)}
+	go func() {
+		if err := webServer.ListenAndServe(); err != nil {
+			cfg.Logger.WithError(err).Fatal("Failed to initialize webserver")
 		}
-	}(cfg)
+	}()
 
-	// TODO: start webserver to listen for remote control commands
-
-	// TODO: cancel the interrupts when a shutdown signal is received
+	// Shut down the background handlers and webserver listener when a shutdown signal is received
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
 	logger.Info("Trapped Ctrl+C, shutting down")
 	halt()
+
+	logger.Debug("Halting wakeup")
+	lights.HaltWakeup()
+
+	shutdownContext, forceShutdown := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer forceShutdown()
+	logger.Debug("Shutting down webserver")
+	if err = webServer.Shutdown(shutdownContext); err != nil {
+		if err != http.ErrServerClosed {
+			cfg.Logger.WithError(err).Fatalf("Error shutting down webserver: %t, %v", err, err)
+		}
+	}
 	os.Exit(0)
 
 }

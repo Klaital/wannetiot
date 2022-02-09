@@ -17,11 +17,33 @@ type LightConfig struct {
 	B    gpio.Duty
 }
 
-func DriveLights(cfg *config.Config, settings LightConfig) {
+func DriveLights(cfg *config.Config, settings *LightConfig) {
+	cfg.Logger.WithField("lights", settings).Debug("Driving lights")
 	util.DrivePWM(cfg.LedControlRedPin, settings.R, 5*physic.KiloHertz, nil)
 	util.DrivePWM(cfg.LedControlGreenPin, settings.G, 5*physic.KiloHertz, nil)
 	util.DrivePWM(cfg.LedControlWhitePin, settings.W, 5*physic.KiloHertz, nil)
 	util.DrivePWM(cfg.LedControlBluePin, settings.B, 5*physic.KiloHertz, nil)
+}
+
+// AddSettings mutates the values in `a` by adding the values contained in `b`.
+// They are capped at the value in gpio.MaxDuty.
+func AddSettings(a, b *LightConfig) {
+	a.R += b.R
+	a.G += b.G
+	a.W += b.W
+	a.B += b.B
+	if a.R > gpio.DutyMax {
+		a.R = gpio.DutyMax
+	}
+	if a.G > gpio.DutyMax {
+		a.G = gpio.DutyMax
+	}
+	if a.W > gpio.DutyMax {
+		a.W = gpio.DutyMax
+	}
+	if a.B > gpio.DutyMax {
+		a.B = gpio.DutyMax
+	}
 }
 
 func RunLightsDemo(cfg *config.Config) {

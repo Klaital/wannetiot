@@ -7,19 +7,25 @@ import (
 
 // LightSettingsFull generates the LightConfig for full-power Soft White Light.
 func LightSettingsFull() LightConfig {
-	redDuty, err := gpio.ParseDuty("10%")
+	redDuty, err := gpio.ParseDuty("60%")
 	if err != nil {
 		log.WithError(err).Error("Failed to parse duty setting")
 		redDuty = gpio.DutyMax / 5
 	}
+	greenDuty, err := gpio.ParseDuty("10%")
+	if err != nil {
+		log.WithError(err).Error("Failed to parse duty setting")
+		greenDuty = gpio.DutyMax / 5
+	}
 	return LightConfig{
 		Name: "LIGHTS_FULL",
 		R:    redDuty,
-		G:    0,
+		G:    greenDuty,
 		W:    gpio.DutyMax,
 		B:    0,
 	}
 }
+
 var LightsFull LightConfig = LightSettingsFull()
 var LightsOff LightConfig = LightConfig{Name: "LIGHTS_OFF"}
 

@@ -7,6 +7,7 @@ import (
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
 	"github.com/klaital/max31855"
+	"github.com/ryszard/sds011/go/sds011"
 	log "github.com/sirupsen/logrus"
 	"github.com/warthog618/gpiod"
 	"github.com/warthog618/gpiod/spi/mcp3w0c"
@@ -22,10 +23,11 @@ import (
 
 type Config struct {
 	// Metadata
-	NodeName    string `env:"NODE_NAME" envDefault:"bedroom"`
-	LogLevelStr string `env:"LOG_LEVEL" envDefault:"debug"`
-	LogLevel    log.Level
-	Logger      *log.Logger
+	NodeName       string `env:"NODE_NAME" envDefault:"bedroom"`
+	LogLevelStr    string `env:"LOG_LEVEL" envDefault:"debug"`
+	LogLevel       log.Level
+	Logger         *log.Logger
+	WakeupDuration time.Duration `env:"WAKEUP_DURATION" envDefault:"30m"`
 
 	// InfluxDB
 	InfluxHost       string `env:"INFLUX_HOST"`
@@ -47,9 +49,12 @@ type Config struct {
 	PollInterval  time.Duration `env:"POLL_INTERVAL" envDefault:"5s"`
 	AM2302Enabled bool          `env:"AM2302_ENABLED" envDefault:"false"`
 	AM2302PinName string        `env:"AM2302" envDefault:"GPIO16"`
-	SDS011Txd     string        `env:"SDS011_TXD" envDefault:"GPIO14"`
-	SDS011Rxd     string        `env:"SDS011_RXD" envDefault:"GPIO15"`
 	AM2302Sensor  *dht.DHT
+	SDS011Enabled bool   `env:"SDS011_ENABLED" envDefault:"false"`
+	SDS011Txd     string `env:"SDS011_TXD" envDefault:"GPIO14"`
+	SDS011Rxd     string `env:"SDS011_RXD" envDefault:"GPIO15"`
+	SDSSerialPath string `env:"SDS_SERIAL_PATH" envDefault:"'/dev/ttyAMA0"`
+	SDSSensor     *sds011.Sensor
 
 	// Thermocouple
 	Thermocouple1Enabled bool   `env:"THERMO1_ENABLED" envDefault:"false"`
@@ -150,6 +155,35 @@ func (cfg *Config) InitSensors() {
 	}
 
 	// TODO: Air Quality
+	if cfg.SDS011Enabled {
+		cfg.SDSSensor, err = sds011.New(cfg.SDSSerialPath)
+		if err != nil {
+			cfg.Logger.WithError(err).Fatal("Failed to initialize dust sensor")
+		}
+		// Initial reading
+		err = cfg.SDSSensor.Awake()
+		if err != nil {
+			cfg.Logger.WithError(err).Fatal("Failed to awaken dust sensor")
+		}
+		cfg.Logger.Debug("Waiting for sds011 sensor to wake up for initial reading")
+		time.Sleep(2 * time.Second)
+		p, err := cfg.SDSSensor.Get()
+		if err != nil {
+			cfg.Logger.WithError(err).Fatal("Failed to read dust sensor")
+		}
+		cfg.Logger.WithFields(log.Fields{
+			"pm2.5": p.PM25,
+			"pm1.0": p.PM10,
+			"time":  p.Timestamp,
+			"str":   p.String(),
+		}).Info("Initial Dust reading complete")
+
+		err = cfg.SDSSensor.Sleep()
+		if err != nil {
+			cfg.Logger.WithError(err).Fatal("Failed to sleep dust sensor")
+		}
+
+	}
 }
 
 func (cfg *Config) InitWaterSensors() error {
