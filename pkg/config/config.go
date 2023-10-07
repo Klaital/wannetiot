@@ -6,6 +6,7 @@ import (
 	"github.com/caarlos0/env/v6"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
+	"github.com/joho/godotenv"
 	"github.com/klaital/max31855"
 	"github.com/ryszard/sds011/go/sds011"
 	log "github.com/sirupsen/logrus"
@@ -31,10 +32,10 @@ type Config struct {
 
 	// InfluxDB
 	InfluxHost       string `env:"INFLUX_HOST"`
-	InfluxToken      string `env:"INFLUX_TOKEN"`
-	InfluxOrg        string `env:"INFLUX_ORG"`
-	InfluxBucket     string `env:"INFLUX_BUCKET"`
-	InfluxBufferSize int    `env:"INFLUX_BUFFER_LEN"`
+	InfluxToken      string `env:"INFLUXDB_TOKEN"`
+	InfluxOrg        string `env:"INFLUXDB_ORG"`
+	InfluxBucket     string `env:"INFLUXDB_BUCKET"`
+	InfluxBufferSize int    `env:"INFLUXDB_BUFFER_LEN"`
 	influxClient     api.WriteAPIBlocking
 
 	// RF Remote Control
@@ -53,7 +54,7 @@ type Config struct {
 	SDS011Enabled bool   `env:"SDS011_ENABLED" envDefault:"false"`
 	SDS011Txd     string `env:"SDS011_TXD" envDefault:"GPIO14"`
 	SDS011Rxd     string `env:"SDS011_RXD" envDefault:"GPIO15"`
-	SDSSerialPath string `env:"SDS_SERIAL_PATH" envDefault:"'/dev/ttyAMA0"`
+	SDSSerialPath string `env:"SDS_SERIAL_PATH" envDefault:"/dev/ttyAMA0"`
 	SDSSensor     *sds011.Sensor
 
 	// Thermocouple
@@ -125,6 +126,11 @@ type Config struct {
 
 func (cfg *Config) GetInfluxDB() api.WriteAPIBlocking {
 	if cfg.influxClient == nil {
+		log.WithFields(log.Fields{
+			"host":   cfg.InfluxHost,
+			"org":    cfg.InfluxOrg,
+			"bucket": cfg.InfluxBucket,
+		}).Debug("Connecting to InfluxDB")
 		influx := influxdb2.NewClient(cfg.InfluxHost, cfg.InfluxToken)
 		cfg.influxClient = influx.WriteAPIBlocking(cfg.InfluxOrg, cfg.InfluxBucket)
 	}
@@ -138,27 +144,35 @@ func (cfg *Config) InitSensors() {
 		if err = dht.HostInit(); err != nil {
 			log.WithError(err).Fatal("Failed to initialize AM2302 temp/humidity sensor host")
 		}
+
 		cfg.AM2302Sensor, err = dht.NewDHT(cfg.AM2302PinName, dht.Fahrenheit, "")
 		if err != nil {
 			log.WithError(err).Fatal("Failed to initialize AM2302 temp/humidity sensor")
 		}
 
+		// initial reading is in a retry loop, since the read errors erratically
 		h, t, err := cfg.AM2302Sensor.Read()
-		if err != nil {
-			log.WithError(err).Fatal("Failed to take initial reading from AM2302 temp/humidity sensor")
-		} else {
-			log.WithFields(log.Fields{
-				"temperature": t,
-				"humidity":    h,
-			}).Info("Initial temperature and humidity reading")
+		for i := 0; i < 10; i++ {
+			if err != nil {
+				log.WithError(err).Error("Failed to take initial reading from AM2302 temp/humidity sensor")
+				time.Sleep(10 * time.Millisecond)
+				h, t, err = cfg.AM2302Sensor.Read()
+			} else {
+				log.WithFields(log.Fields{
+					"temperature": t,
+					"humidity":    h,
+				}).Info("Initial temperature and humidity reading")
+				break
+			}
 		}
+
 	}
 
 	// TODO: Air Quality
 	if cfg.SDS011Enabled {
 		cfg.SDSSensor, err = sds011.New(cfg.SDSSerialPath)
 		if err != nil {
-			cfg.Logger.WithError(err).Fatal("Failed to initialize dust sensor")
+			cfg.Logger.WithField("SDS Serial Path", cfg.SDSSerialPath).WithError(err).Fatal("Failed to initialize dust sensor")
 		}
 		// Initial reading
 		err = cfg.SDSSensor.Awake()
@@ -252,6 +266,9 @@ var cfg *Config
 
 func New() *Config {
 	if cfg == nil {
+		// Load .env files before reading the environment settings
+		godotenv.Load("prod.env")
+		godotenv.Load("cmd/bedroom/prod.env")
 		cfg = new(Config)
 		err := env.Parse(cfg)
 		if err != nil {
@@ -397,6 +414,7 @@ func (cfg *Config) InitPins() {
 // This function must be called before the program exits, or else
 // the Raspberry Pi must be reset before PWM can be used again.
 func (cfg *Config) HaltPins() {
+	log.Info("Halting LED control pins")
 	if cfg.LedControlRedPin != nil {
 		cfg.LedControlRedPin.Halt()
 	}

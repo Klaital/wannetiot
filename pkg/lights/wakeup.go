@@ -81,9 +81,8 @@ func DoWakeup() {
 	startWakeup <- true
 }
 func HaltWakeup() {
-	log.Debug("Halting wakeup lights")
 	if wakeupTimer != nil {
 		wakeupTimer.Stop()
-		haltWakeup <- true
+		//haltWakeup <- true
 	}
 }

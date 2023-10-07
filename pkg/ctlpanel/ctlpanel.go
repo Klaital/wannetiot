@@ -142,17 +142,17 @@ func (p *ControlPanel) HandleTouchSwitch(oldLightSettings *lights.LightConfig) (
 		switch oldLightSettings.Name {
 		case "LIGHTS_OFF":
 			newSettings.Name = "LIGHTS_LOW"
-			newSettings.R = lights.LightsFull.R / 10
-			newSettings.G = lights.LightsFull.G / 10
-			newSettings.W = lights.LightsFull.W / 10
-			newSettings.B = lights.LightsFull.B / 10
+			newSettings.R = lights.Full.R / 10
+			newSettings.G = lights.Full.G / 10
+			newSettings.W = lights.Full.W / 10
+			newSettings.B = lights.Full.B / 10
 		case "LIGHTS_FULL":
 			newSettings.Name = "LIGHTS_OFF"
 			// Use default zero values
 		case "LIGHTS_LOW":
-			newSettings = lights.LightsFull
+			newSettings = lights.Full
 		default:
-			newSettings = lights.LightsFull
+			newSettings = lights.Full
 		}
 		log.WithFields(log.Fields{
 			"old": oldLightSettings,

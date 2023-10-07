@@ -9,6 +9,7 @@ require (
 	github.com/influxdata/influxdb-client-go/v2 v2.5.1
 	github.com/influxdata/line-protocol v0.0.0-20210922203350-b1ad95c89adf // indirect
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klaital/max31855 v1.1.1-0.20211010220105-c66517c70612
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/ryszard/sds011 v0.0.0-20170226135337-5d7058e01434
